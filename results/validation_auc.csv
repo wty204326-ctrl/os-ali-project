@@ -1,0 +1,4 @@
+"model","auc"
+"LASSO",0.9375
+"randomForest",0.8312
+"XGBoost",0.9125
