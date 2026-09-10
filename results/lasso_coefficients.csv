@@ -1,6 +1,5 @@
 "gene","coefficient"
-"(Intercept)",-20.0194
-"Hmox1",0.8377
-"Itch",-0.1551
-"Rcan1",0.6657
-"Btg1",1.1875
+"(Intercept)",1.32
+"BTG1",0.8075
+"HMOX1",1.8133
+"ITCH",-1.484

@@ -1,4 +1,4 @@
 "model","auc_mean","auc_sd"
-"LASSO",0.9243,0.0038
-"randomForest",0.9569,0.0146
-"XGBoost",0.9441,0.0174
+"LASSO",0.9257,0.0031
+"randomForest",0.958,0.005
+"XGBoost",0.9167,0.0265
