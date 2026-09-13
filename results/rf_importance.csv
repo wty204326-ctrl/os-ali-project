@@ -1,8 +1,9 @@
 "gene","MeanDecreaseGini"
-"Hmox1",3.721
-"Srxn1",3.032
-"Itch",2.463
-"Btg1",2.383
-"Rcan1",1.64
-"Txnrd1",1.323
-"Gclc",0.935
+"Hmox1",3.299
+"Srxn1",2.601
+"Itch",2.396
+"Btg1",2.389
+"Rcan1",1.702
+"Txnrd1",1.549
+"Gclc",1.128
+"Xpa",0.49

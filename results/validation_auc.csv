@@ -1,4 +1,4 @@
-"model","auc"
-"LASSO",0.9375
-"randomForest",0.8312
-"XGBoost",0.9125
+"model","auc","sens_0.5","spec_0.5"
+"LASSO",0.975,0.7,1
+"randomForest",0.9562,0.7,1
+"XGBoost",0.9188,0.25,1
