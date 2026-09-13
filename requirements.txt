@@ -1,0 +1,7 @@
+# Jupyter 结果展示层依赖(Python >= 3.10;实测 Python 3.12.10)
+# R 全流程复现见 env/rna.yml 与 scripts/run_all.sh,与本文件无关
+pandas>=2.2        # 实测 3.0.2
+matplotlib>=3.8    # 实测 3.10.9
+scikit-learn>=1.4  # 实测 1.9.0(仅用 roc_auc_score/roc_curve)
+ipykernel>=6.29    # Jupyter 内核(实测 7.2.0)
+jupyterlab>=4.0    # 或 notebook,任选其一打开 ipynb

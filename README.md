@@ -62,9 +62,11 @@ GPL annot.gz ──→ 探针注释 ──────────────�
 ├── README.md            项目说明(本文件)
 ├── env/rna.yml          conda 锁文件(Linux-64)
 ├── scripts/             全部分析脚本(按编号顺序执行)
+├── notebooks/           Jupyter 结果展示笔记本(可复现)
 ├── data/raw/            原始数据(不提交,.gitignore 已排除)
 ├── results/             分析结果(表格与图,提交)
-└── report/              R Markdown 最终报告
+├── report/              R Markdown 最终报告
+└── requirements.txt     Python(Jupyter 展示层)依赖清单
 ```
 
 ## 5. 复现方法
@@ -80,6 +82,15 @@ bash scripts/run_all.sh
 
 `env/rna.yml` 从本机 Linux 环境导出,含 CUDA 相关构建。若 `mamba env create` 失败,在已有 R 4.x 中安装 limma、clusterProfiler、org.Mm.eg.db、glmnet、randomForest、xgboost、pROC、ggplot2、rmarkdown、readxl 后直接运行脚本即可。
 
+**方式 B:Jupyter 结果展示(轻量,只需 Python,不重新下载数据)**
+
+```bash
+pip install -r requirements.txt
+jupyter lab notebooks/01_results_showcase.ipynb
+```
+
+笔记本读取已提交的 `results/` 结果文件,重绘火山图/ROC/特征重要性与富集表,并从逐样本预测概率**现场重算外部验证 AUC、与存储值自动核对**(断言通过才有输出),适合快速检查结果完整性。仓库用 git 做版本管理,里程碑见下方与 `git tag`。
+
 ## 6. 里程碑
 
 - [x] v0.1-data 仓库初始化、数据集核验与下载(2026-09-09)
@@ -87,6 +98,7 @@ bash scripts/run_all.sh
 - [x] v0.3-ml 机器学习建模与外部验证(2026-09-09)
 - [x] v1.0-final 报告、跨物种验证与一键复现脚本(2026-09-09)
 - [x] v1.1-fix 可复现路径、自动探针注释、分层 CV、跨平台 z-score、报告表述(2026-09-13)
+- [x] v1.2-nb Jupyter 结果展示笔记本、Python 依赖清单与可复现性自检(2026-09-13)
 
 ## 7. 环境与工具
 
