@@ -4,11 +4,15 @@
 # 仅含 stub,故在此用分段下载源码安装(单连接下载在网络受限环境必失败)
 set -e
 BASE="$(cd "$(dirname "$0")/.." && pwd)"
-source ~/miniforge3/bin/activate rna 2>/dev/null || {
+# shellcheck disable=SC1091
+source "$BASE/scripts/_activate_rna.sh"
+if ! activate_rna; then
   echo "未找到 rna 环境,正在创建..."
   mamba env create -f "$BASE/env/rna.yml"
-  source ~/miniforge3/bin/activate rna
-}
+  if ! activate_rna; then
+    echo "创建后仍无法激活 rna 环境"; exit 1
+  fi
+fi
 LIB=$(Rscript -e "cat(.libPaths()[1])")
 
 # 分段并行下载:精确到每段字节数的校验(≥ 会导致错位,必须 ==)

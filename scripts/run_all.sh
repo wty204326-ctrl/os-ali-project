@@ -3,7 +3,13 @@
 # 用法: bash scripts/run_all.sh
 set -e
 BASE="$(cd "$(dirname "$0")/.." && pwd)"
-source ~/miniforge3/bin/activate rna
+export OS_ALI_BASE="$BASE"
+# shellcheck disable=SC1091
+source "$BASE/scripts/_activate_rna.sh"
+if ! activate_rna; then
+  echo "未找到 conda 环境 rna,请先: mamba env create -f env/rna.yml && conda activate rna"
+  exit 1
+fi
 
 echo "===== [0/6] 依赖自检与补装 ====="
 bash "$BASE/scripts/00_install_deps.sh"

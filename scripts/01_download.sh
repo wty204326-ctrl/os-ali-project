@@ -30,14 +30,14 @@ dl "$GEO/series/GSE120nnn/GSE120652/matrix/GSE120652_series_matrix.txt.gz" \
 dl "$GEO/platforms/GPL1nnn/GPL1261/annot/GPL1261.annot.gz" GPL1261.annot.gz "gz_ok GPL1261.annot.gz"
 dl "$GEO/platforms/GPL6nnn/GPL6244/annot/GPL6244.annot.gz" GPL6244.annot.gz "gz_ok GPL6244.annot.gz"
 
-# 氧化应激基因集 GO:0006979(EBI GOA 直接注释)
+# 氧化应激基因集 GO:0006979(EBI GOA 直接注释;GAF 第2列为 UniProt accession,不是 Entrez)
 for sp in mouse human; do
   ucase=$(echo $sp | tr a-z A-Z)
   dl "https://ftp.ebi.ac.uk/pub/databases/GO/goa/${ucase}/goa_${sp}.gaf.gz" \
      goa_${sp}.gaf.gz "gz_ok goa_${sp}.gaf.gz"
   zcat goa_${sp}.gaf.gz 2>/dev/null | awk -F"\t" '$0 !~ /^!/ && $5=="GO:0006979" {print $3"\t"$2}' \
     | sort -u > /tmp/os_${sp}.tsv
-  (echo "gene_symbol,entrez_id"; sed "s/\t/,/g" /tmp/os_${sp}.tsv) > "$BASE/data/os_genes_${sp}.csv"
+  (echo "gene_symbol,uniprot_id"; sed "s/\t/,/g" /tmp/os_${sp}.tsv) > "$BASE/data/os_genes_${sp}.csv"
   echo "✓ os_genes_${sp}.csv: $(($(wc -l < "$BASE/data/os_genes_${sp}.csv") - 1)) 个基因"
 done
 echo "[01] 数据下载完成"
