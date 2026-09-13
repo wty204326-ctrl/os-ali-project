@@ -1,7 +1,7 @@
 ---
 title: "基于氧化应激相关基因的急性肝损伤机器学习诊断模型"
-author: "wty204326 · 计算生物学与人工智能课程项目"
-date: "2026-09-09"
+author: "计算生物学与人工智能课程项目"
+date: "2026-09-13"
 output:
   html_document:
     toc: true
@@ -17,10 +17,8 @@ knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE,
 ```
 
 ```{r load}
-base_dir <- "."
 out_dir  <- "results"
-res <- list.files(out_dir, full.names = TRUE)
-read_csv_ <- function(f) read.csv(file.path(out_dir, f))
+read_csv_ <- function(f) read.csv(file.path(out_dir, f), stringsAsFactors = FALSE)
 ```
 
 # 背景与目的
@@ -40,29 +38,29 @@ data.frame(
   角色 = c("训练集", "外部验证集", "跨物种方向验证"),
   数据集 = c("GSE17649", "GSE111828", "GSE120652"),
   物种 = c("小鼠", "小鼠", "人"),
-  设计 = c("多品系 APAP vs 对照(12:24)", "C57BL/6J APAP vs 对照(4:20)", "APAP-ALF vs 正常肝"),
+  设计 = c("多品系 APAP 后 0h vs 3–6h(12:24)", "C57BL/6J 未处理 vs APAP 12–72h(4:20)", "APAP-ALF vs 正常肝"),
   平台 = c("GPL1261 芯片", "RNA-seq(supplementary)", "GPL6244 芯片"),
   n = c(36, 24, 6)
 ) |> knitr::kable(caption = "本研究所用数据集")
 ```
 
+训练集 GSE17649 含敏感品系与抗性品系 SJL,对照为 **APAP 给药后 0h 基线**,不是溶媒/未处理对照。外部验证 GSE111828 与训练集为**同物种(小鼠)、不同平台**(芯片 vs RNA-seq)。
+
 ## 方法
 
-1. **预处理**:GEO series matrix / 补充数据读取,log2 转换,分组标签解析;
-2. **差异表达**:limma(APAP vs Control,|log2FC|>1 且 BH adj.P<0.05);
-3. **OS-DEGs**:DEGs 与 GO:0006979(response to oxidative stress)基因集(EBI GOA 注释,174 基因)取交集;
-4. **富集**:clusterProfiler + org.Mm.eg.db,GO BP 与 KEGG;
-5. **机器学习**:7 个 OS-DEG 基因表达为特征,glmnet(LASSO)、randomForest、xgboost 三模型,5 折 × 5 次重复交叉验证;
-6. **外部验证**:训练好的模型直接应用于 GSE111828 的 RNA-seq 数据(log2 计数),AUC 评估;
-7. **跨物种检验**:小鼠 OS-DEGs 映射人源同源基因(符号直配),检验 log2FC 方向一致性。
+1. **预处理**:GEO series matrix / 补充数据读取,必要时 log2 转换;探针注释由 GPL annot.gz 自动生成。
+2. **差异表达**:limma(APAP vs Control,|log2FC|>1 且 BH adj.P<0.05)。
+3. **OS-DEGs**:DEGs 与 GO:0006979(response to oxidative stress)基因集(EBI GOA 直接注释)取交集。
+4. **富集**:clusterProfiler + org.Mm.eg.db,GO BP 与 KEGG。查询集来自氧化应激基因交集,GO:0006979 显著是筛选的必然结果,不作独立发现。
+5. **机器学习**:OS-DEG 基因表达为特征;glmnet(LASSO)、randomForest、xgboost;分层 5 折 × 5 次重复交叉验证。折内对特征做 z-score,测试折使用训练集的均值与标准差。OS-DEGs 在全训练集上选出,故 CV AUC 略偏乐观,以外部验证为确认指标。
+6. **外部验证**:验证集基因**独立** z-score(不套用芯片尺度)后输入模型;报告 AUC,以及阈值 0.5 下的灵敏度/特异度。
+7. **跨物种检验**:小鼠 OS-DEGs 映射人源同源基因(符号直配),检验 log2FC 方向一致性。人源 n=6,仅作探索性附录。
 
-所有脚本位于 `scripts/`,随机种子固定为 20260909。
+所有脚本位于 `scripts/`,随机种子固定为 20260909。项目根目录由脚本自动解析,不再写死本机路径。
 
 # 结果
 
 ## 差异表达分析
-
-训练集 GSE17649(12 Control vs 24 APAP,45,101 探针)共检出 **566 个差异表达基因(上调 361,下调 205)**。与氧化应激基因集取交集后得到 **9 个探针 / 7 个基因**的 OS-DEGs:
 
 ```{r osdeg}
 os <- read_csv_("os_deg_GSE17649.csv")
@@ -71,7 +69,13 @@ os_u <- data.frame(
   logFC = sapply(unique(os$gene_symbol), function(g) round(os$logFC[os$gene_symbol == g][1], 2)),
   adjP = signif(sapply(unique(os$gene_symbol), function(g) os$adj.P.Val[os$gene_symbol == g][1]), 3)
 )
-os_u[order(-abs(os_u$logFC)), ] |> knitr::kable(caption = "OS-DEGs 列表(按 |logFC| 排序)")
+os_u <- os_u[order(-abs(os_u$logFC)), ]
+```
+
+训练集 GSE17649(12 Control vs 24 APAP)与氧化应激基因集取交集后得到 **`r nrow(os)` 个探针 / `r length(unique(os$gene_symbol))` 个基因**的 OS-DEGs:
+
+```{r osdeg-table}
+os_u |> knitr::kable(caption = "OS-DEGs 列表(按 |logFC| 排序)")
 ```
 
 值得注意的是,**Hmox1、Srxn1、Gclc、Txnrd1 均为 Nrf2 通路的经典靶基因**——Nrf2 通路激活正是细胞对抗氧化应激的核心应答,与 APAP 肝损伤的病理机制高度吻合。
@@ -83,21 +87,21 @@ go <- read_csv_("enrichment_go_BP.csv")
 kegg_f <- file.path(out_dir, "enrichment_kegg.csv")
 go_top <- head(go[order(go$qvalue), ], 5)
 go_top[, c("ID", "Description", "GeneRatio", "FoldEnrichment", "p.adjust")] |>
-  knitr::kable(caption = "GO BP 富集前 5 位通路", digits = 3)
+  knitr::kable(caption = "GO BP 富集前 5 位通路(含筛选条目,仅供对照)", digits = 3)
 if (file.exists(kegg_f)) {
   kg <- read.csv(kegg_f)
-  cat(sprintf("KEGG 显著通路(q<0.25)共 %d 条,前 3 位:%s\n", sum(kg$qvalue < 0.25),
+  cat(sprintf("KEGG 显著通路(q<0.25)共 %d 条,前 3 位:%s\n", sum(kg$qvalue < 0.25, na.rm = TRUE),
               paste(head(kg$Description, 3), collapse = "；")))
 }
 ```
 
-![OS-DEGs 的 GO 富集点图](../results/enrichment_dotplot.png)
+![OS-DEGs 的 GO 富集点图(已排除筛选所用 GO:0006979)](../results/enrichment_dotplot.png)
 
-最显著通路即为 **"response to oxidative stress" 本身**(FoldEnrichment = `r round(go$FoldEnrichment[order(go$qvalue)][1], 1)`,adj.P = `r signif(go$p.adjust[order(go$qvalue)][1], 3)`),说明基因集筛选与分析流程形成闭环验证;"cell redox homeostasis"(Gclc 参与)亦显著。
+最显著条目即为筛选所用的 **"response to oxidative stress"** 本身,这是基因集定义的循环结果,不能当作独立生物学发现。其余条目(如 cell redox homeostasis)可作为辅助描述。
 
 ## 机器学习诊断模型
 
-以 7 个 OS-DEG 基因的表达为特征,三种模型的 5 折 × 5 次交叉验证结果:
+以 `r length(unique(os$gene_symbol))` 个 OS-DEG 基因的表达为特征,三种模型的分层 5 折 × 5 次交叉验证结果:
 
 ```{r cv}
 read_csv_("ml_cv_results.csv") |> knitr::kable(caption = "训练集交叉验证 AUC(均值±标准差)")
@@ -105,53 +109,70 @@ read_csv_("ml_cv_results.csv") |> knitr::kable(caption = "训练集交叉验证 
 
 ![训练集 ROC 曲线](../results/roc_training.png)
 
-LASSO 在 `r ncol(readRDS(file.path(out_dir, "models_GSE17649.rds"))$lasso$glmnet.fit$x) - 1 + 0` 个候选特征中将模型压缩至 **`r nrow(read_csv_("lasso_coefficients.csv")) - 1` 个基因**(Hmox1、Btg1、Rcan1、Itch);随机森林重要性前三为 Hmox1、Srxn1、Itch。两种特征选择视角一致指向 Hmox1 为核心特征。
+```{r lasso-n}
+lasso_cf <- read_csv_("lasso_coefficients.csv")
+n_lasso <- sum(lasso_cf$gene != "(Intercept)")
+lasso_genes <- paste(lasso_cf$gene[lasso_cf$gene != "(Intercept)"], collapse = "、")
+rf_imp <- read_csv_("rf_importance.csv")
+```
 
-## 外部验证(GSE111828,独立 RNA-seq 数据)
+LASSO 将模型压缩至 **`r n_lasso` 个基因**(`r lasso_genes`);随机森林重要性前三为 `r paste(head(rf_imp$gene, 3), collapse = "、")`。两种特征选择视角一致指向 Hmox1 为核心特征。
 
-将训练好的模型直接应用于 24 个独立样本(4 Control vs 20 APAP):
+## 外部验证(GSE111828,独立小鼠 RNA-seq)
+
+将训练好的模型应用于 24 个独立样本(4 Control vs 20 APAP;验证集内 z-score):
 
 ```{r validation}
-read_csv_("validation_auc.csv") |> knitr::kable(caption = "外部验证 AUC")
+va <- read_csv_("validation_auc.csv")
+va |> knitr::kable(caption = "外部验证(AUC;若有列则含阈值 0.5 的灵敏度/特异度)")
 ```
 
 ![外部验证 ROC 曲线](../results/roc_validation.png)
 
-**三个模型在外部数据集上 AUC 均超过 0.83,其中 LASSO 达 0.938。**验证数据来自不同物种同一疾病模型的不同实验(RNA-seq 测序 vs 训练集芯片),且由不同实验室完成——这表明模型捕捉到的是氧化应激损伤的稳健分子信号,而非平台特异性噪声。简约的 LASSO 模型在外部验证中表现最佳,符合"特征少、泛化强"的统计学习常识。
+验证集与训练集为**同种小鼠、不同实验与平台**。AUC 衡量排序能力;阈值 0.5 下的灵敏度/特异度用于检查概率是否校准。简约的 LASSO 若在外部验证中同时保持较高 AUC 与可用的特异度,才支持“跨平台分子签名”的说法。
 
-## 跨物种方向一致性检验(人源数据)
+## 跨物种方向一致性检验(人源数据,探索性)
 
 ```{r cross, eval=file.exists(file.path(out_dir, "crossspecies_GSE120652.csv"))}
 cs <- read_csv_("crossspecies_GSE120652.csv")
 cs$logFC <- round(cs$logFC, 2)
 cs$mouse_logFC <- round(cs$mouse_logFC, 2)
+cs$adj.P.Val <- signif(cs$adj.P.Val, 3)
 cs[, c("gene_symbol", "mouse_logFC", "logFC", "adj.P.Val", "direction_concordant")] |>
   knitr::kable(caption = "人源 APAP-ALF 数据(GSE120652)中的方向一致性")
-cat(sprintf("方向一致率:%d/%d\n", sum(cs$direction_concordant), nrow(cs)))
+cat(sprintf("方向一致:%d/%d;人源 BH 显著(adj.P<0.05):%d/%d\n",
+            sum(cs$direction_concordant), nrow(cs),
+            sum(cs$adj.P.Val < 0.05), nrow(cs)))
 ```
+
+人源样本仅 6 例,校正后显著性弱,结果只用于讨论方向是否大致保留,不能称为跨物种验证成功。
 
 # 讨论
 
-1. **生物学合理性**:OS-DEGs 富集于氧化应激应答与氧化还原稳态,Hmox1/Gclc/Txnrd1/Srxn1 构成典型的 Nrf2 靶基因模块。已有大量文献报道 APAP 肝损伤中 Nrf2-HO1 轴的 protective 作用,本项目的计算结果与之互相印证。
-2. **模型简约性**:LASSO 将 7 个候选基因压缩至 4 个仍保持外部 AUC 0.938,提示急性肝损伤的氧化应激信号高度集中于少数枢纽基因;Hmox1 在两种特征选择方法中均排首位,可作为后续实验验证(如 qPCR、血清 HO-1 蛋白)的首选标志物。
-3. **局限性**:训练集为小鼠模型,外推到人需谨慎(本项目以人源数据方向一致性作部分弥补);验证集对照组仅 4 例,AUC 区间较宽;未纳入临床协变量(ALT/AST 等)。
+1. **生物学合理性**:OS-DEGs 中 Hmox1/Gclc/Txnrd1/Srxn1 构成典型的 Nrf2 靶基因模块。已有文献报道 APAP 肝损伤中 Nrf2-HO1 轴的保护作用,与本项目的枢纽基因选择一致。GO:0006979 富集本身不能作为独立证据。
+2. **模型简约性**:LASSO 从少数候选基因中再压缩,Hmox1 在两种特征选择方法中均靠前,可作为后续实验验证(如 qPCR、血清 HO-1 蛋白)的首选标志物。
+3. **局限性**:训练集对照为给药后 0h 而非未处理肝,并混有抗性品系;OS-DEGs 在全训练集上选出,CV AUC 偏乐观;验证集对照仅 4 例,阈值分类的特异度可能不稳定;人源 n=6 且多数基因未过 FDR;未纳入临床协变量(ALT/AST 等)。
 
 # 结论
 
-仅用 **7 个氧化应激相关基因**的表达即可构建跨平台稳定的急性肝损伤诊断模型(LASSO 外部验证 AUC 0.938),其中 Hmox1 为最关键特征基因。氧化应激不仅是 APAP 肝损伤的致病机制,其相关基因表达谱本身即是稳健的诊断分子签名。
+少数氧化应激相关基因的表达可在小鼠芯片数据上拟合分类器,并在独立 RNA-seq 实验上检验排序能力。Hmox1 为最关键特征基因。将本模型直接外推到人类临床诊断尚缺乏充分证据。
 
 # 复现说明
 
 ```bash
 mamba env create -f env/rna.yml
-source ~/miniforge3/bin/activate rna
+conda activate rna
 bash scripts/run_all.sh
 ```
 
-数据下载、预处理、建模、验证全部由 `scripts/` 中编号脚本完成;随机种子固定,结果可完全复现。
+数据下载、预处理、建模、验证全部由 `scripts/` 中编号脚本完成;随机种子固定。`env/rna.yml` 为 Linux-64 锁文件,换机器若创建失败,可在已有 R 4.x 环境中安装 limma、clusterProfiler、glmnet、randomForest、xgboost、pROC、ggplot2、rmarkdown、readxl 后直接跑脚本。
 
 # 环境信息
 
 ```{r session}
-sessionInfo()
+si <- sessionInfo()
+# 脱敏:隐藏个人用户名路径
+si$BLAS <- gsub("/home/[^/]+/", "~/", si$BLAS)
+si$LAPACK <- gsub("/home/[^/]+/", "~/", si$LAPACK)
+print(si)
 ```
